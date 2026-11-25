@@ -1,0 +1,5 @@
+{
+  "provider": "huggingface",
+  "model_name": "all-MiniLM-L6-v2",
+  "total_documents": 411
+}

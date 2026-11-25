@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GraphAI — Graph Algorithms & CP Assistant</title>
+  <!-- Three.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --accent: #06b6d4;
+      --glass-bg: rgba(15, 23, 42, 0.72);
+      --glass-border: rgba(255, 255, 255, 0.12);
+      --glass-glow: rgba(99, 102, 241, 0.25);
+      --user-msg: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+      --bot-msg: rgba(30, 41, 59, 0.85);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #030712;
+      color: var(--text-main);
+    }
+
+    /* Full-screen Three.js 3D Canvas */
+    #three-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* Main Container Centering the Glassmorphic Chat */
+    .app-container {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100vw;
+      height: 100vh;
+      padding: 20px;
+    }
+
+    /* Glassmorphism Chatbox */
+    .chat-card {
+      width: 100%;
+      max-width: 820px;
+      height: 88vh;
+      max-height: 860px;
+      display: flex;
+      flex-direction: column;
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 40px var(--glass-glow);
+      overflow: hidden;
+      animation: floatUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes floatUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* Chat Header */
+    .chat-header {
+      padding: 18px 26px;
+      border-bottom: 1px solid var(--glass-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(15, 23, 42, 0.5);
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #6366f1, #06b6d4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+    }
+
+    .brand-icon svg {
+      width: 24px;
+      height: 24px;
+      fill: none;
+      stroke: #fff;
+      stroke-width: 2;
+    }
+
+    .brand-title h2 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #fff;
+    }
+
+    .brand-title p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.75rem;
+      color: #10b981;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 5px 12px;
+      border-radius: 20px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.9); }
+    }
+
+    /* Suggestion Pills */
+    .quick-prompts {
+      display: flex;
+      gap: 8px;
+      padding: 10px 24px;
+      overflow-x: auto;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(15, 23, 42, 0.25);
+    }
+
+    .quick-prompts::-webkit-scrollbar {
+      display: none;
+    }
+
+    .prompt-pill {
+      white-space: nowrap;
+      padding: 6px 14px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .prompt-pill:hover {
+      background: rgba(99, 102, 241, 0.2);
+      border-color: rgba(99, 102, 241, 0.4);
+      color: #fff;
+    }
+
+    /* Message Area */
+    .chat-messages {
+      flex: 1;
+      padding: 24px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .chat-messages::-webkit-scrollbar {
+      width: 6px;
+    }
+    .chat-messages::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+    }
+
+    /* Message Bubble Styles */
+    .message-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      max-width: 84%;
+      animation: fadeInMsg 0.35s ease-out forwards;
+    }
+
+    @keyframes fadeInMsg {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .message-row.user {
+      align-self: flex-end;
+      flex-direction: row-reverse;
+    }
+
+    .message-row.bot {
+      align-self: flex-start;
+    }
+
+    .avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+    }
+
+    .avatar.user-avatar {
+      background: linear-gradient(135deg, #ec4899, #8b5cf6);
+      box-shadow: 0 2px 8px rgba(236, 72, 153, 0.3);
+    }
+
+    .avatar.bot-avatar {
+      background: linear-gradient(135deg, #6366f1, #06b6d4);
+      box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+    }
+
+    .bubble {
+      padding: 13px 18px;
+      border-radius: 18px;
+      font-size: 0.92rem;
+      line-height: 1.55;
+      word-break: break-word;
+      position: relative;
+    }
+
+    .message-row.user .bubble {
+      background: var(--user-msg);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+      box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+    }
+
+    .message-row.bot .bubble {
+      background: var(--bot-msg);
+      color: var(--text-main);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .bubble code {
+      background: rgba(0, 0, 0, 0.35);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.85em;
+    }
+
+    .bubble pre {
+      background: rgba(0, 0, 0, 0.45);
+      padding: 12px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin-top: 8px;
+      margin-bottom: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .sources-container {
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      font-size: 0.72rem;
+    }
+
+    .source-tag {
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      color: #a5b4fc;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+
+    /* Thinking Animation */
+    .thinking-bubble {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 14px 18px;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: bounce 1.4s infinite ease-in-out both;
+    }
+
+    .dot:nth-child(1) { animation-delay: -0.32s; }
+    .dot:nth-child(2) { animation-delay: -0.16s; }
+    .dot:nth-child(3) { animation-delay: 0s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% {
+        transform: scale(0);
+        opacity: 0.3;
+      }
+      40% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    /* Chat Input Form */
+    .chat-input-area {
+      padding: 16px 20px;
+      border-top: 1px solid var(--glass-border);
+      background: rgba(15, 23, 42, 0.6);
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .input-wrapper {
+      position: relative;
+      flex: 1;
+    }
+
+    .chat-input {
+      width: 100%;
+      background: rgba(2, 6, 23, 0.65);
+      border: 1px solid var(--glass-border);
+      border-radius: 14px;
+      padding: 14px 18px;
+      font-size: 0.95rem;
+      color: #fff;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .chat-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 15px rgba(99, 102, 241, 0.35);
+      background: rgba(2, 6, 23, 0.85);
+    }
+
+    .chat-input::placeholder {
+      color: #64748b;
+    }
+
+    .send-btn {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      border: none;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+    }
+
+    .send-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(99, 102, 241, 0.55);
+      background: linear-gradient(135deg, #4f46e5, #4338ca);
+    }
+
+    .send-btn:active {
+      transform: translateY(1px);
+    }
+
+    .send-btn svg {
+      width: 20px;
+      height: 20px;
+      fill: none;
+      stroke: #fff;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .app-container {
+        padding: 8px;
+      }
+      .chat-card {
+        height: 96vh;
+        border-radius: 16px;
+      }
+      .quick-prompts {
+        display: none;
+      }
+      .message-row {
+        max-width: 92%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Fullscreen 3D Background Canvas -->
+  <div id="three-canvas"></div>
+
+  <!-- Centered Glassmorphic Chat App -->
+  <div class="app-container">
+    <div class="chat-card">
+
+      <!-- Header -->
+      <header class="chat-header">
+        <div class="brand-section">
+          <div class="brand-icon">
+            <!-- Graph Icon -->
+            <svg viewBox="0 0 24 24">
+              <circle cx="6" cy="6" r="3"></circle>
+              <circle cx="18" cy="6" r="3"></circle>
+              <circle cx="18" cy="18" r="3"></circle>
+              <circle cx="6" cy="18" r="3"></circle>
+              <line x1="8.5" y1="7.5" x2="15.5" y2="16.5"></line>
+              <line x1="8.5" y1="6" x2="15.5" y2="6"></line>
+              <line x1="6" y1="8.5" x2="6" y2="15.5"></line>
+            </svg>
+          </div>
+          <div class="brand-title">
+            <h2>GraphAI Assistant</h2>
+            <p>RAG Knowledge Base & Competitive Programming Expert</p>
+          </div>
+        </div>
+
+        <div class="status-badge">
+          <span class="status-dot"></span>
+          <span>Online (localhost:8000)</span>
+        </div>
+      </header>
+
+      <!-- Quick prompts -->
+      <div class="quick-prompts">
+        <div class="prompt-pill" onclick="sendQuickPrompt('When should I use BFS vs Dijkstra?')">BFS vs Dijkstra</div>
+        <div class="prompt-pill" onclick="sendQuickPrompt('Explain Kahn\'s algorithm for Topological Sort')">Kahn's Topo Sort</div>
+        <div class="prompt-pill" onclick="sendQuickPrompt('How does Disjoint Set Union (DSU) with union by size work?')">DSU with Union by Size</div>
+        <div class="prompt-pill" onclick="sendQuickPrompt('What is a bridge and an articulation point in DFS tree?')">Bridges & Articulation Points</div>
+      </div>
+
+      <!-- Messages Stream -->
+      <main class="chat-messages" id="chat-messages">
+        <!-- Initial Welcome Message -->
+        <div class="message-row bot">
+          <div class="avatar bot-avatar">🤖</div>
+          <div class="bubble">
+            Hello! I am your <strong>Graph Algorithms & Data Structures AI Assistant</strong>. 
+            Ask me anything about graph representations, traversals (DFS/BFS), shortest paths, trees, DSU, or competitive programming problem modelling!
+          </div>
+        </div>
+      </main>
+
+      <!-- Input Bar -->
+      <footer class="chat-input-area">
+        <div class="input-wrapper">
+          <input 
+            type="text" 
+            id="user-input" 
+            class="chat-input" 
+            placeholder="Ask about graph algorithms, complexity, or problem modelling..." 
+            autocomplete="off"
+          />
+        </div>
+        <button id="send-button" class="send-btn" title="Send message" aria-label="Send">
+          <svg viewBox="0 0 24 24">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </footer>
+
+    </div>
+  </div>
+
+  <!-- 3D Three.js Animated Network Graph Background -->
+  <script>
+    (function initThreeBackground() {
+      const container = document.getElementById('three-canvas');
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.z = 240;
+
+      const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      container.appendChild(renderer.domElement);
+
+      // Create a 3D Graph Structure with Nodes and Connecting Edges
+      const nodeCount = 75;
+      const nodes = [];
+      const nodeGeometry = new THREE.SphereGeometry(1.4, 16, 16);
+      const nodeMaterial = new THREE.MeshBasicMaterial({ color: 0x818cf8 });
+
+      const graphGroup = new THREE.Group();
+      scene.add(graphGroup);
+
+      const positions = [];
+      const radiusRange = 160;
+
+      for (let i = 0; i < nodeCount; i++) {
+        const mesh = new THREE.Mesh(nodeGeometry, nodeMaterial);
+        mesh.position.x = (Math.random() - 0.5) * radiusRange * 1.5;
+        mesh.position.y = (Math.random() - 0.5) * radiusRange;
+        mesh.position.z = (Math.random() - 0.5) * radiusRange;
+        mesh.velocity = new THREE.Vector3(
+          (Math.random() - 0.5) * 0.15,
+          (Math.random() - 0.5) * 0.15,
+          (Math.random() - 0.5) * 0.15
+        );
+        graphGroup.add(mesh);
+        nodes.push(mesh);
+      }
+
+      // Dynamic Lines (Edges) between close nodes
+      const maxDistance = 45;
+      const lineMaterial = new THREE.LineBasicMaterial({
+        color: 0x4f46e5,
+        transparent: true,
+        opacity: 0.35,
+        blending: THREE.AdditiveBlending
+      });
+
+      const lineGeometry = new THREE.BufferGeometry();
+      const linePositions = new Float32Array(nodeCount * nodeCount * 6);
+      lineGeometry.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
+      const lineMesh = new THREE.LineSegments(lineGeometry, lineMaterial);
+      graphGroup.add(lineMesh);
+
+      // Ambient Floating Particles
+      const starGeo = new THREE.BufferGeometry();
+      const starCount = 300;
+      const starCoords = new Float32Array(starCount * 3);
+      for (let i = 0; i < starCount * 3; i++) {
+        starCoords[i] = (Math.random() - 0.5) * 600;
+      }
+      starGeo.setAttribute('position', new THREE.BufferAttribute(starCoords, 3));
+      const starMat = new THREE.PointsMaterial({
+        color: 0x06b6d4,
+        size: 1.5,
+        transparent: true,
+        opacity: 0.5
+      });
+      const starField = new THREE.Points(starGeo, starMat);
+      scene.add(starField);
+
+      // Mouse Parallax
+      let mouseX = 0, mouseY = 0;
+      window.addEventListener('mousemove', (e) => {
+        mouseX = (e.clientX - window.innerWidth / 2) * 0.0006;
+        mouseY = (e.clientY - window.innerHeight / 2) * 0.0006;
+      });
+
+      // Window Resize Handling
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      // Animation Loop
+      function animate() {
+        requestAnimationFrame(animate);
+
+        // Smooth rotation
+        graphGroup.rotation.y += 0.0015;
+        graphGroup.rotation.x += 0.0008;
+
+        starField.rotation.y += 0.0004;
+
+        // Mouse Parallax reaction
+        graphGroup.rotation.y += (mouseX - graphGroup.rotation.y) * 0.03;
+        graphGroup.rotation.x += (mouseY - graphGroup.rotation.x) * 0.03;
+
+        // Move nodes slightly and bounce inside bounds
+        for (let i = 0; i < nodeCount; i++) {
+          const n = nodes[i];
+          n.position.add(n.velocity);
+          if (Math.abs(n.position.x) > 130) n.velocity.x *= -1;
+          if (Math.abs(n.position.y) > 90) n.velocity.y *= -1;
+          if (Math.abs(n.position.z) > 90) n.velocity.z *= -1;
+        }
+
+        // Update connecting edges
+        let vertexIndex = 0;
+        const posAttr = lineMesh.geometry.attributes.position;
+        const array = posAttr.array;
+
+        for (let i = 0; i < nodeCount; i++) {
+          for (let j = i + 1; j < nodeCount; j++) {
+            const dist = nodes[i].position.distanceTo(nodes[j].position);
+            if (dist < maxDistance) {
+              array[vertexIndex++] = nodes[i].position.x;
+              array[vertexIndex++] = nodes[i].position.y;
+              array[vertexIndex++] = nodes[i].position.z;
+
+              array[vertexIndex++] = nodes[j].position.x;
+              array[vertexIndex++] = nodes[j].position.y;
+              array[vertexIndex++] = nodes[j].position.z;
+            }
+          }
+        }
+
+        posAttr.needsUpdate = true;
+        lineMesh.geometry.setDrawRange(0, vertexIndex / 3);
+
+        renderer.render(scene, camera);
+      }
+
+      animate();
+    })();
+  </script>
+
+  <!-- Chatbot Logic & API Communication -->
+  <script>
+    const API_URL = 'http://localhost:8000/ask';
+    const messagesContainer = document.getElementById('chat-messages');
+    const inputField = document.getElementById('user-input');
+    const sendButton = document.getElementById('send-button');
+
+    // Unique session ID to maintain conversation memory for this browser session
+    const sessionId = 'session_' + Math.random().toString(36).substring(2, 10);
+
+    function scrollToBottom() {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function appendMessage(sender, text, isHtml = false, sources = []) {
+      const row = document.createElement('div');
+      row.className = `message-row ${sender}`;
+
+      const avatar = document.createElement('div');
+      avatar.className = `avatar ${sender}-avatar`;
+      avatar.innerText = sender === 'user' ? '👤' : '🤖';
+
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+
+      if (isHtml) {
+        bubble.innerHTML = text;
+      } else {
+        // Formats newlines and code formatting gracefully
+        let formatted = text
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+          .replace(/`([^`]+)`/g, '<code>$1</code>')
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\n/g, '<br>');
+        bubble.innerHTML = formatted;
+      }
+
+      // Append source references if available from RAG
+      if (sources && sources.length > 0) {
+        const srcContainer = document.createElement('div');
+        srcContainer.className = 'sources-container';
+        const label = document.createElement('span');
+        label.style.color = '#94a3b8';
+        label.style.fontWeight = '500';
+        label.innerText = '📚 Top Sources:';
+        srcContainer.appendChild(label);
+
+        sources.forEach(src => {
+          const tag = document.createElement('span');
+          tag.className = 'source-tag';
+          tag.innerText = src;
+          srcContainer.appendChild(tag);
+        });
+        bubble.appendChild(srcContainer);
+      }
+
+      row.appendChild(avatar);
+      row.appendChild(bubble);
+      messagesContainer.appendChild(row);
+      scrollToBottom();
+      return row;
+    }
+
+    function showThinkingIndicator() {
+      const row = document.createElement('div');
+      row.className = 'message-row bot thinking-row';
+      row.id = 'thinking-indicator';
+
+      const avatar = document.createElement('div');
+      avatar.className = 'avatar bot-avatar';
+      avatar.innerText = '🤖';
+
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble thinking-bubble';
+      bubble.innerHTML = `
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+      `;
+
+      row.appendChild(avatar);
+      row.appendChild(bubble);
+      messagesContainer.appendChild(row);
+      scrollToBottom();
+    }
+
+    function removeThinkingIndicator() {
+      const thinkingElem = document.getElementById('thinking-indicator');
+      if (thinkingElem) {
+        thinkingElem.remove();
+      }
+    }
+
+    async function handleSendMessage() {
+      const question = inputField.value.trim();
+      if (!question) return;
+
+      // 1. Display user message
+      appendMessage('user', question);
+      inputField.value = '';
+      inputField.disabled = true;
+      sendButton.disabled = true;
+
+      // 2. Show thinking animation
+      showThinkingIndicator();
+
+      try {
+        // 3. Send POST request to FastAPI backend with question and session_id
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            question: question,
+            session_id: sessionId
+          })
+        });
+
+        removeThinkingIndicator();
+
+        if (!response.ok) {
+          let errorMsg = `Server error (HTTP ${response.status})`;
+          try {
+            const errData = await response.json();
+            if (errData && errData.detail) {
+              errorMsg = errData.detail.replace(/\n/g, '<br>');
+            }
+          } catch (_) {}
+          appendMessage('bot', `⚠️ <strong>Configuration Alert:</strong><br><br>${errorMsg}`, true);
+          return;
+        }
+
+        const data = await response.json();
+        const answerText = data.answer || "I received an empty response.";
+
+        // 4. Display AI answer and sources
+        appendMessage('bot', answerText, false, data.sources || []);
+
+      } catch (error) {
+        removeThinkingIndicator();
+        console.error('Fetch error:', error);
+        appendMessage('bot', `⚠️ <strong>Connection Error:</strong> Could not reach <code>${API_URL}</code>.<br><br>Please make sure the backend server is running in terminal:<br><code>python3 server.py</code>`, true);
+      } finally {
+        inputField.disabled = false;
+        sendButton.disabled = false;
+        inputField.focus();
+      }
+    }
+
+    // Event listeners
+    sendButton.addEventListener('click', handleSendMessage);
+
+    inputField.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSendMessage();
+      }
+    });
+
+    function sendQuickPrompt(promptText) {
+      inputField.value = promptText;
+      handleSendMessage();
+    }
+
+    // Auto-focus input on page load
+    window.addEventListener('load', () => inputField.focus());
+  </script>
+</body>
+</html>
